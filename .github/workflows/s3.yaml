@@ -1,0 +1,54 @@
+---
+on:
+  - push
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: terraform init
+        uses: robertdebock/terraform-action@1.1.2
+        with:
+          action: init
+          directory: ./s3
+      - name: terraform validate
+        uses: robertdebock/terraform-action@1.1.2
+        with:
+          action: validate
+          directory: ./s3
+      - name: terraform plan
+        uses: robertdebock/terraform-action@1.1.2
+        with:
+          action: plan
+          directory: ./s3
+
+
+
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15
+    - name: Setup Dependencies
+      working-directory: tests/
+      run:  go get -v -t -d && go mod tidy
+    - name: Test
+      working-directory: tests/
+      run: go test -v ec2_test.go
+      # - name: terraform apply
+      #   uses: robertdebock/terraform-action@1.1.2
+      #   with:
+      #     action: apply
+      #     directory: ./ec2
+      #   env:
+      #     TF_CLI_ARGS: "-input=false -auto-approve"
